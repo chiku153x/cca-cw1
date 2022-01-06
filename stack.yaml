@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: CW1 - CCA
+Parameters:
+  LogRetainTimeInDays:
+    Type: "Number"
+    Default: 7
+  DeployBucket:
+    Type: "String"
+  Version:
+    Type: "String"
+  s3BasePath:
+    Type: "String"
+  BucketName:
+    Type: "String"
+    Default: "csv2sql"  
+ 
+
+Resources:
+
+  Permission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref ProcessCSV
+      Principal: s3.amazonaws.com
+      SourceArn: !Sub 'arn:aws:s3:::${BucketName}'
+      SourceAccount: !Ref AWS::AccountId 
+
+  InOutBucket:
+    Type: AWS::S3::Bucket
+    DependsOn:
+      - Permission
+    Properties:
+      BucketName: !Ref BucketName
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: s3:ObjectCreated:*
+            Function: !GetAtt ProcessCSV.Arn
+            Filter:
+              S3Key:
+                Rules:
+                - Name: prefix
+                  Value: csv
+ 
+  DependentPackagesLayer:
+    Type: "AWS::Lambda::LayerVersion"
+    Properties:
+      CompatibleRuntimes:
+        - python3.8
+      Content:
+        S3Bucket: !Ref DeployBucket
+        S3Key: !Join
+          - ''
+          - - !Ref s3BasePath
+            - !Ref Version
+            - '/'
+            - 'layer'
+            - '.zip'
+      LicenseInfo: MIT
+
+
+  #source  : https://stackoverflow.com/questions/51736671/aws-cloudformation-link-api-key-to-api-gateway
+  
+  ApiGatewayEndpoint:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Auth:
+        ApiKeyRequired: true
+        UsagePlan:
+          CreateUsagePlan: PER_API
+          UsagePlanName: GatewayAuthorization
+
+      ############
+
+  ProcessCSV:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: process CSV.
+      Runtime: python3.8
+      Handler: lambda_function.lambda_handler
+      CodeUri:
+        Bucket: !Ref DeployBucket
+        Key: !Join
+              - ''
+              - - !Ref s3BasePath
+                - !Ref Version
+                - '/'
+                - 'process_csv'
+                - '.zip'
+      MemorySize: 3008
+      Tracing: Active
+      Layers:
+        - !Ref DependentPackagesLayer
+      Policies: 
+        - 
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:*
+                - "lambda:InvokeFunction"
+              Resource: "*"
+      Timeout: 300
+      Environment:
+        Variables:
+          PATH: "/var/task/bin"
+
+
+        
+  GetSignedURL:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Get Signed URL.
+      Runtime: python3.8
+      Handler: lambda_function.lambda_handler
+      CodeUri:
+        Bucket: !Ref DeployBucket
+        Key: !Join
+              - ''
+              - - !Ref s3BasePath
+                - !Ref Version
+                - '/'
+                - 'get_signed_url'
+                - '.zip'
+      MemorySize: 3008
+      Tracing: Active
+      Policies: 
+        - 
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action:
+                - s3:*
+                - "lambda:InvokeFunction"
+              Resource: "*"
+      Timeout: 300
+      Events:
+        PostEvent:
+          Type: Api
+          Properties:
+            Path: /csv2sql
+            Method: POST
+            RequestParameters:
+              - method.request.header.Authorization:
+                  Required: true
+                  Caching: true
+            RestApiId:
+              Ref: ApiGatewayEndpoint
+
+
+
+
+
+
