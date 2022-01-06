@@ -15,7 +15,6 @@ deploy: build package build_layers upload
 	--parameter-overrides \
     DeployBucket=$(bucket) \
     Version=$(version) \
-	Stage=$(Stage) \
 	BucketName=$(BucketName) \
     s3BasePath="$(BucketName)/"
 
