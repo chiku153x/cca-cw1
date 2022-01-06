@@ -13,7 +13,6 @@ Parameters:
     Type: "String"
   BucketName:
     Type: "String"
-    Default: "csv2sql"  
   InPrefix:
     Type: "String"
     Default: "csv"     
