@@ -6,7 +6,7 @@ profile=default
 message="Initial deployment"
 region="eu-west-1"
 version=$(build_version)
-BucketName=csv2sql-$(stage)
+BucketName=csv2sql$(stage)
 Stage=$(stage)
 
 deploy: build package build_layers upload
@@ -45,7 +45,7 @@ build_layers:
 	rm -fr release/$(version)/deps
 
 upload:
-	aws s3 sync ./release/$(version)	s3://$(bucket)/csv2sql/$(version) --profile $(profile)
+	aws s3 sync ./release/$(version)	s3://$(bucket)/csv2sql$(stage)/$(version) --profile $(profile)
 
 
 package:
