@@ -1,0 +1,174 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: CW1 - CCA
+Parameters:
+  LogRetainTimeInDays:
+    Type: Number
+    Default: 7
+  DeployBucket:
+    Type: String
+  Version:
+    Type: String
+  s3BasePath:
+    Type: String
+  BucketName:
+    Type: String
+    Default: csv2sql
+  InPrefix:
+    Type: String
+    Default: csv
+  OutPrefix:
+    Type: String
+    Default: sql
+Resources:
+  Permission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName:
+        Ref: ProcessCSV
+      Principal: s3.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:s3:::${BucketName}
+      SourceAccount:
+        Ref: AWS::AccountId
+  InOutBucket:
+    Type: AWS::S3::Bucket
+    DependsOn:
+    - Permission
+    Properties:
+      BucketName:
+        Ref: BucketName
+      NotificationConfiguration:
+        LambdaConfigurations:
+        - Event: s3:ObjectCreated:*
+          Function:
+            Fn::GetAtt:
+            - ProcessCSV
+            - Arn
+          Filter:
+            S3Key:
+              Rules:
+              - Name: prefix
+                Value: csv
+      CorsConfiguration:
+        CorsRules:
+        - AllowedHeaders:
+          - '*'
+          AllowedMethods:
+          - GET
+          - PUT
+          AllowedOrigins:
+          - '*'
+          Id: CORSRuleId1
+          MaxAge: '3600'
+  DependentPackagesLayer:
+    Type: AWS::Lambda::LayerVersion
+    Properties:
+      CompatibleRuntimes:
+      - python3.8
+      Content:
+        S3Bucket:
+          Ref: DeployBucket
+        S3Key:
+          Fn::Join:
+          - ''
+          - - Ref: s3BasePath
+            - Ref: Version
+            - /
+            - layer
+            - .zip
+      LicenseInfo: MIT
+  ApiGatewayEndpoint:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      Auth:
+        ApiKeyRequired: true
+        UsagePlan:
+          CreateUsagePlan: PER_API
+          UsagePlanName: GatewayAuthorization
+  ProcessCSV:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: process CSV.
+      Runtime: python3.8
+      Handler: lambda_function.lambda_handler
+      CodeUri:
+        Bucket:
+          Ref: DeployBucket
+        Key:
+          Fn::Join:
+          - ''
+          - - Ref: s3BasePath
+            - Ref: Version
+            - /
+            - process_csv
+            - .zip
+      MemorySize: 3008
+      Tracing: Active
+      Layers:
+      - Ref: DependentPackagesLayer
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - s3:*
+          - lambda:InvokeFunction
+          Resource: '*'
+      Timeout: 300
+      Environment:
+        Variables:
+          BUCKET:
+            Ref: BucketName
+          OUTPREFIX:
+            Ref: OutPrefix
+  GetSignedURL:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Get Signed URL.
+      Runtime: python3.8
+      Handler: lambda_function.lambda_handler
+      CodeUri:
+        Bucket:
+          Ref: DeployBucket
+        Key:
+          Fn::Join:
+          - ''
+          - - Ref: s3BasePath
+            - Ref: Version
+            - /
+            - get_signed_url
+            - .zip
+      MemorySize: 3008
+      Layers:
+      - Ref: DependentPackagesLayer
+      Tracing: Active
+      Policies:
+      - Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Action:
+          - s3:*
+          - lambda:InvokeFunction
+          Resource: '*'
+      Timeout: 300
+      Environment:
+        Variables:
+          BUCKET:
+            Ref: BucketName
+          INPREFIX:
+            Ref: InPrefix
+      Events:
+        getsigned:
+          Type: Api
+          Properties:
+            Path: /getsigned
+            Method: POST
+            RequestParameters:
+            - method.request.header.Authorization:
+                Required: true
+                Caching: true
+            RestApiId:
+              Ref: ApiGatewayEndpoint

@@ -14,7 +14,12 @@ Parameters:
   BucketName:
     Type: "String"
     Default: "csv2sql"  
- 
+  InPrefix:
+    Type: "String"
+    Default: "csv"     
+  OutPrefix:
+    Type: "String"
+    Default: "sql"  
 
 Resources:
 
@@ -42,6 +47,13 @@ Resources:
                 Rules:
                 - Name: prefix
                   Value: csv
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders: ['*']
+            AllowedMethods: [GET, PUT]
+            AllowedOrigins: ['*']
+            Id: CORSRuleId1
+            MaxAge: '3600'              
  
   DependentPackagesLayer:
     Type: "AWS::Lambda::LayerVersion"
@@ -105,7 +117,8 @@ Resources:
       Timeout: 300
       Environment:
         Variables:
-          PATH: "/var/task/bin"
+          BUCKET: !Ref BucketName
+          OUTPREFIX: !Ref OutPrefix
 
 
         
@@ -125,6 +138,8 @@ Resources:
                 - 'get_signed_url'
                 - '.zip'
       MemorySize: 3008
+      Layers:
+        - !Ref DependentPackagesLayer
       Tracing: Active
       Policies: 
         - 
@@ -136,11 +151,16 @@ Resources:
                 - "lambda:InvokeFunction"
               Resource: "*"
       Timeout: 300
+      Environment:
+        Variables:
+          BUCKET: !Ref BucketName
+          INPREFIX: !Ref InPrefix
+          
       Events:
-        PostEvent:
+        getsigned:
           Type: Api
           Properties:
-            Path: /csv2sql
+            Path: /getsigned
             Method: POST
             RequestParameters:
               - method.request.header.Authorization:
@@ -148,9 +168,11 @@ Resources:
                   Caching: true
             RestApiId:
               Ref: ApiGatewayEndpoint
+     
 
 
 
 
 
 
+# presigned url : https://boto3.amazonaws.com/v1/documentation/api/latest/guide/s3-presigned-urls.html
