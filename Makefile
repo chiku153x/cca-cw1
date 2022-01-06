@@ -1,12 +1,13 @@
 all: deploy
 
-stack=cw1-cca
+stack=cw1-cca-$(stage)
 bucket=chiku-deployment
 profile=default
 message="Initial deployment"
 region="eu-west-1"
 version=$(build_version)
 BucketName=csv2sql
+Stage=$(stage)
 
 deploy: build package build_layers upload
 	aws cloudformation deploy --template-file $(stack)-output.yaml --stack-name $(stack) \
@@ -14,6 +15,7 @@ deploy: build package build_layers upload
 	--parameter-overrides \
     DeployBucket=$(bucket) \
     Version=$(version) \
+	Stage=$(Stage) \
     s3BasePath="$(BucketName)/"
 
 init:

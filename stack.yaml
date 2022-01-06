@@ -74,8 +74,6 @@ Resources:
             - '.zip'
       LicenseInfo: MIT
 
-
-  #source  : https://stackoverflow.com/questions/51736671/aws-cloudformation-link-api-key-to-api-gateway
   
   ApiGatewayEndpoint:
     Type: AWS::Serverless::Api
@@ -87,7 +85,6 @@ Resources:
           CreateUsagePlan: PER_API
           UsagePlanName: GatewayAuthorization
 
-      ############
 
   ProcessCSV:
     Type: AWS::Serverless::Function
@@ -172,10 +169,3 @@ Resources:
             RestApiId:
               Ref: ApiGatewayEndpoint
      
-
-
-
-
-
-
-# presigned url : https://boto3.amazonaws.com/v1/documentation/api/latest/guide/s3-presigned-urls.html
