@@ -5,7 +5,7 @@ bucket=chiku-deployment
 profile=default
 message="Initial deployment"
 region="eu-west-1"
-version=1.34
+version=$(build_version)
 BucketName=csv2sql
 
 deploy: build package build_layers upload
