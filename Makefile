@@ -18,7 +18,7 @@ deploy: build package build_layers upload
 
 init:
 	rm -fr ./env
-	python3 -m venv ./env
+	python3.8 -m venv ./env
 	./env/bin/pip3 install  -r src/requirements.txt
 build: build_package build_layers upload
 
